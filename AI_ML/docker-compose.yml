@@ -1,0 +1,45 @@
+services:
+  # ── Endee Vector Database ──────────────────────────────────────────────────
+  endee:
+    image: endeeio/endee-server:latest
+    container_name: endee-server
+    ports:
+      - "8080:8080"
+    ulimits:
+      nofile: 100000
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "200m"
+        max-file: "5"
+    environment:
+      NDD_NUM_THREADS: 0       # 0 = auto-detect
+      NDD_AUTH_TOKEN: ""       # set a token here for production
+    volumes:
+      - endee-data:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── RAG API ────────────────────────────────────────────────────────────────
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: rag-api
+    ports:
+      - "8000:8000"
+    environment:
+      ENDEE_URL: "http://endee:8080/api/v1"
+      ENDEE_AUTH_TOKEN: ""
+      ANTHROPIC_API_KEY: "${ANTHROPIC_API_KEY:-}"
+    depends_on:
+      endee:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  endee-data:
